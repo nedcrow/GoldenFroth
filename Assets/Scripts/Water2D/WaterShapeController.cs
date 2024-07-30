@@ -1,40 +1,79 @@
-using Example9;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.U2D;
 
 [ExecuteAlways]
 public class WaterShapeController : MonoBehaviour
 {
-    [SerializeField]
-    private GameObject box;
-    [SerializeField]
-    private GameObject wavePointPref;
-    //////////////////
-    private int CorsnersCount = 2;
-    [SerializeField]
-    private SpriteShapeController spriteShapeController;
+    public float spread = 0.006f;
+    public float dampening = 0.03f;
+    public float springStiffness = 0.1f;
+
+    public GameObject wavePointPref;
+
     [SerializeField]
     [Range(1, 100)]
     private int WavesCount = 6;
     [SerializeField]
-    private GameObject wavePoints;
-    //////////////////
-    // How much to spread to the other springs
-    public float spread = 0.006f;
-    // Slowing the movement over time
+    private string wavePointsName = "WavePoints";
     [SerializeField]
-    private float dampening = 0.03f;
-    // How stiff should our spring be constnat
-    [SerializeField]
-    private float springStiffness = 0.1f;
+    private GameObject wavePointGroup;
     [SerializeField]
     private List<WaterSpring> waterSprings = new();
+    private bool inCanvas = false;
+    private int CornersCount = 2;
+    private SpriteShapeController spriteShapeController = null;
+
+    void Start()
+    {
+        inCanvas = GetComponent<RectTransform>();
+        spriteShapeController = GetComponent<SpriteShapeController>();
+        if (spriteShapeController == null) Debug.LogWarning("Null exception SpriteShapeController from " + name);
+
+        if(wavePointPref == null) Debug.LogWarning("Null exception wavePointPref from " + name);
+
+        if (wavePointGroup == null)
+        {
+            Transform child = transform.Find(wavePointsName + "_" + name);
+            if(child == null)
+            {
+                wavePointGroup = new GameObject(wavePointsName + "_" + name);
+                wavePointGroup.transform.parent = transform;
+                wavePointGroup.transform.localPosition = Vector3.zero;
+            }
+            else
+            {
+                wavePointGroup = child.gameObject;
+                wavePointGroup.transform.localPosition = Vector3.zero;
+            }
+        }
+
+        RemoveAllWavepoints();
+
+        SetWaves();
+
+        foreach (WaterSpring waterSpringComponent in waterSprings)
+        {
+            waterSpringComponent.Init(spriteShapeController);
+        }
+    }
+
+    void OnValidate()
+    {
+        if (!gameObject.activeSelf)
+        {
+            inCanvas = GetComponent<RectTransform>();
+            return;
+        }
+    }
+
     void FixedUpdate()
     {
         foreach (WaterSpring waterSpringComponent in waterSprings)
         {
+            if (waterSpringComponent == null) break;
             waterSpringComponent.WaveSpringUpdate(springStiffness, dampening);
             waterSpringComponent.WavePointUpdate();
         }
@@ -50,9 +89,9 @@ public class WaterShapeController : MonoBehaviour
         // Keep only the corners
         // Removing 1 point at a time we can remove only the 1st point
         // This means every time we remove 1st point the 2nd point becomes first
-        for (int i = CorsnersCount; i < waterPointsCount - CorsnersCount; i++)
+        for (int i = CornersCount; i < waterPointsCount - CornersCount; i++)
         {
-            waterSpline.RemovePointAt(CorsnersCount);
+            waterSpline.RemovePointAt(CornersCount);
         }
 
         Vector3 waterTopLeftCorner = waterSpline.GetPosition(1);
@@ -63,7 +102,7 @@ public class WaterShapeController : MonoBehaviour
         // Set new points for the waves
         for (int i = WavesCount; i > 0; i--)
         {
-            int index = CorsnersCount;
+            int index = CornersCount;
 
             float xPosition = waterTopLeftCorner.x + (spacingPerWave * i);
             Vector3 wavePoint = new Vector3(xPosition, waterTopLeftCorner.y, waterTopLeftCorner.z);
@@ -77,11 +116,12 @@ public class WaterShapeController : MonoBehaviour
         // loop through all the wave points
         // plus the both top left and right corners
         CreateSprings(waterSpline);
-        //Splash(2, 1);
+        Splash(2, 1);
     }
     private void CreateSprings(Spline waterSpline)
     {
-        waterSprings = new();
+        List<GameObject> tempGameObjList = new List<GameObject>();
+        waterSprings = new List<WaterSpring>();
 
         for (int i = 0; i <= WavesCount + 1; i++)
         {
@@ -89,10 +129,14 @@ public class WaterShapeController : MonoBehaviour
 
             Smoothen(waterSpline, index);
 
-            GameObject wavePoint = Instantiate(wavePointPref, wavePoints.transform, false);
-            wavePoint.transform.localPosition = waterSpline.GetPosition(index);
+            GameObject wavePoint = Instantiate(wavePointPref, wavePointGroup.transform, false);
+            wavePoint.transform.localPosition = inCanvas ? waterSpline.GetPosition(index) : waterSpline.GetPosition(index);
+            tempGameObjList.Add(wavePoint);
+        }
 
-            WaterSpring waterSpring = wavePoint.GetComponent<WaterSpring>();
+        foreach (var item in tempGameObjList)
+        {
+            WaterSpring waterSpring = item.GetComponent<WaterSpring>();
             waterSpring.Init(spriteShapeController);
             waterSprings.Add(waterSpring);
         }
@@ -142,6 +186,7 @@ public class WaterShapeController : MonoBehaviour
                 right_deltas[i] = spread * (waterSprings[i].height - waterSprings[i + 1].height);
                 waterSprings[i + 1].velocity += right_deltas[i];
             }
+            //Splash(i, 0.01f);
         }
     }
 
@@ -155,11 +200,11 @@ public class WaterShapeController : MonoBehaviour
 
     private void RemoveAllWavepoints()
     {
-        GameObject[] wavepointArr = new GameObject[wavePoints.transform.childCount];
+        GameObject[] wavepointArr = new GameObject[wavePointGroup.transform.childCount];
 
         for (int i = 0; i < wavepointArr.Length; i++)
         {
-            wavepointArr[i] = wavePoints.transform.GetChild(i).gameObject;
+            wavepointArr[i] = wavePointGroup.transform.GetChild(i).gameObject;
         }
 
         foreach (var child in wavepointArr)
@@ -168,34 +213,9 @@ public class WaterShapeController : MonoBehaviour
         }
     }
 
-    // Examples
-    private Vector3 boxStartPosition = new Vector3(1.25f, 9f, 0f);
-    // On Enable for example purposes
-    void Start()
-    {
-        if (spriteShapeController == null) spriteShapeController = GetComponent<SpriteShapeController>();
-
-        box.transform.position = boxStartPosition;
-
-        RemoveAllWavepoints();
-
-        SetWaves();
-
-        foreach (WaterSpring waterSpringComponent in waterSprings)
-        {
-            waterSpringComponent.Init(spriteShapeController);
-        }
-    }
-    void OnValidate()
-    {
-        if (!gameObject.activeSelf)
-        {
-            return;
-        }
-    }
     IEnumerator CreateWaves()
     {
-        foreach (Transform child in wavePoints.transform)
+        foreach (Transform child in wavePointGroup.transform)
         {
             Destroy(child.gameObject);
             //StartCoroutine(Destroy(child.gameObject));
