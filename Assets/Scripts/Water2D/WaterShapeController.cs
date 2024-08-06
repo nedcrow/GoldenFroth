@@ -10,34 +10,34 @@ public class WaterShapeController : MonoBehaviour
     public float spread = 0.006f;
     public float dampening = 0.03f;
     public float springStiffness = 0.1f;
+    public bool selfForm = false;
 
     public GameObject wavePointPref;
 
     [SerializeField]
     [Range(1, 100)]
-    private int WavesCount = 6;
+    int WavesCount = 6;
     [SerializeField]
-    private string wavePointsName = "WavePoints";
+    string wavePointsName = "WavePoints";
     [SerializeField]
-    private GameObject wavePointGroup;
+    GameObject wavePointGroup;
     [SerializeField]
-    private List<WaterSpring> waterSprings = new();
-    private bool inCanvas = false;
-    private int CornersCount = 2;
-    private SpriteShapeController spriteShapeController = null;
+    List<WaterSpring> waterSprings = new();
+    int CornersCount = 2;
+    SpriteShapeController spriteShapeController = null;
 
-    void Start()
+
+    void Awake()
     {
-        inCanvas = GetComponent<RectTransform>();
         spriteShapeController = GetComponent<SpriteShapeController>();
         if (spriteShapeController == null) Debug.LogWarning("Null exception SpriteShapeController from " + name);
 
-        if(wavePointPref == null) Debug.LogWarning("Null exception wavePointPref from " + name);
+        if (wavePointPref == null) Debug.LogWarning("Null exception wavePointPref from " + name);
 
         if (wavePointGroup == null)
         {
             Transform child = transform.Find(wavePointsName + "_" + name);
-            if(child == null)
+            if (child == null)
             {
                 wavePointGroup = new GameObject(wavePointsName + "_" + name);
                 wavePointGroup.transform.parent = transform;
@@ -49,24 +49,15 @@ public class WaterShapeController : MonoBehaviour
                 wavePointGroup.transform.localPosition = Vector3.zero;
             }
         }
+    }
 
-        RemoveAllWavepoints();
-
-        SetWaves();
-
-        foreach (WaterSpring waterSpringComponent in waterSprings)
-        {
-            waterSpringComponent.Init(spriteShapeController);
-        }
+    void Start()
+    {
+        InitWaves();   
     }
 
     void OnValidate()
     {
-        if (!gameObject.activeSelf)
-        {
-            inCanvas = GetComponent<RectTransform>();
-            return;
-        }
     }
 
     void FixedUpdate()
@@ -80,7 +71,35 @@ public class WaterShapeController : MonoBehaviour
 
         UpdateWaterSprings();
     }
-    private void SetWaves()
+
+    public void InitWaves()
+    {
+        RemoveAllWavepoints();
+
+        SetWaves();
+
+        foreach (WaterSpring waterSpringComponent in waterSprings)
+        {
+            waterSpringComponent.Init(spriteShapeController);
+        }
+    }
+
+    public void RemoveAllWavepoints()
+    {
+        GameObject[] wavepointArr = new GameObject[wavePointGroup.transform.childCount];
+
+        for (int i = 0; i < wavepointArr.Length; i++)
+        {
+            wavepointArr[i] = wavePointGroup.transform.GetChild(i).gameObject;
+        }
+
+        foreach (var child in wavepointArr)
+        {
+            DestroyImmediate(child);
+        }
+    }
+
+    void SetWaves()
     {
         Spline waterSpline = spriteShapeController.spline;
         int waterPointsCount = waterSpline.GetPointCount();
@@ -94,8 +113,8 @@ public class WaterShapeController : MonoBehaviour
             waterSpline.RemovePointAt(CornersCount);
         }
 
-        Vector3 waterTopLeftCorner = waterSpline.GetPosition(1);
-        Vector3 waterTopRightCorner = waterSpline.GetPosition(2);
+        Vector3 waterTopLeftCorner =  waterSpline.GetPosition(1);
+        Vector3 waterTopRightCorner =  waterSpline.GetPosition(2);
         float waterWidth = waterTopRightCorner.x - waterTopLeftCorner.x;
 
         float spacingPerWave = waterWidth / (WavesCount + 1);
@@ -109,16 +128,14 @@ public class WaterShapeController : MonoBehaviour
             waterSpline.InsertPointAt(index, wavePoint);
             waterSpline.SetHeight(index, 0.1f);
             waterSpline.SetCorner(index, false);
-            //////////////
             waterSpline.SetTangentMode(index, ShapeTangentMode.Continuous);
-
         }
         // loop through all the wave points
         // plus the both top left and right corners
         CreateSprings(waterSpline);
         Splash(2, 1);
     }
-    private void CreateSprings(Spline waterSpline)
+    void CreateSprings(Spline waterSpline)
     {
         List<GameObject> tempGameObjList = new List<GameObject>();
         waterSprings = new List<WaterSpring>();
@@ -130,7 +147,7 @@ public class WaterShapeController : MonoBehaviour
             Smoothen(waterSpline, index);
 
             GameObject wavePoint = Instantiate(wavePointPref, wavePointGroup.transform, false);
-            wavePoint.transform.localPosition = inCanvas ? waterSpline.GetPosition(index) : waterSpline.GetPosition(index);
+            wavePoint.transform.localPosition = waterSpline.GetPosition(index);
             tempGameObjList.Add(wavePoint);
         }
 
@@ -142,7 +159,7 @@ public class WaterShapeController : MonoBehaviour
         }
     }
 
-    private void Smoothen(Spline waterSpline, int index)
+    void Smoothen(Spline waterSpline, int index)
     {
         Vector3 position = waterSpline.GetPosition(index);
         Vector3 positionPrev = position;
@@ -168,7 +185,7 @@ public class WaterShapeController : MonoBehaviour
         waterSpline.SetLeftTangent(index, leftTangent);
         waterSpline.SetRightTangent(index, rightTangent);
     }
-    private void UpdateWaterSprings()
+    void UpdateWaterSprings()
     {
         int count = waterSprings.Count;
         float[] left_deltas = new float[count];
@@ -190,26 +207,11 @@ public class WaterShapeController : MonoBehaviour
         }
     }
 
-    private void Splash(int index, float speed)
+    void Splash(int index, float speed)
     {
         if (index >= 0 && index < waterSprings.Count)
         {
             waterSprings[index].velocity += speed;
-        }
-    }
-
-    private void RemoveAllWavepoints()
-    {
-        GameObject[] wavepointArr = new GameObject[wavePointGroup.transform.childCount];
-
-        for (int i = 0; i < wavepointArr.Length; i++)
-        {
-            wavepointArr[i] = wavePointGroup.transform.GetChild(i).gameObject;
-        }
-
-        foreach (var child in wavepointArr)
-        {
-            DestroyImmediate(child);
         }
     }
 
