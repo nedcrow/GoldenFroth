@@ -16,8 +16,10 @@ public class CupComponent : MonoBehaviour
 {
     [Range(0,1)]
     public float fillingAmount = 0.5f;
-    [Min(0)]
+    [Range(0, 1)]
     public float thikness = 0;
+    [Range(-170, 170)]
+    public float slopeValue = 0;
 
     public GameObject waterSurface;
     public LineRenderer lineRenderer;
@@ -175,10 +177,32 @@ public class CupComponent : MonoBehaviour
                 WaterCommon.CopySpline(GetComponent<SpriteShapeController>(), childShapeController);
                 childShapeController.spline.SetPosition(1, GetWaterSurfacePositionLeft());
                 childShapeController.spline.SetPosition(2, GetWaterSurfacePositionRight());
-                //bool corner1 = spriteShapeController.spline.GetTangentMode(1) == ShapeTangentMode.Broken;
-                //bool corner2 = spriteShapeController.spline.GetTangentMode(2) == ShapeTangentMode.Broken;
-                //spriteShapeController.spline.SetCorner(0, corner1);
-                //spriteShapeController.spline.SetCorner(0, corner2);
+
+                // 소스 스플라인의 모든 점 복사
+                int countOfPoints = childShapeController.spline.GetPointCount();
+                float centerX = 0;
+                float centerY = 0;
+                float centerZ = 0;
+
+                for (int i = 0; i < countOfPoints; i++)
+                {
+                    centerX += childShapeController.spline.GetPosition(i).x;
+                    centerY += childShapeController.spline.GetPosition(i).y;
+                    centerZ += childShapeController.spline.GetPosition(i).z;
+                }
+
+                Vector3 centerV = new Vector3(
+                    centerX / countOfPoints,
+                    centerY / countOfPoints,
+                    centerZ / countOfPoints
+                    );
+
+                for (int i = 0; i < countOfPoints; i++)
+                {
+                    childShapeController.spline.SetPosition(
+                        i, Vector3.Lerp(childShapeController.spline.GetPosition(i), centerV, thikness)
+                        );
+                }
             }
             waterShapeController.InitWaves();
         }
@@ -188,13 +212,6 @@ public class CupComponent : MonoBehaviour
     {
         // 선분의 전체 높이
         float totalHeight = end.y - start.y;
-
-        //// 주어진 높이가 선분의 범위 내에 있는지 확인
-        //if (targetY < Mathf.Min(start.y, end.y) || targetY > Mathf.Max(start.y, end.y))
-        //{
-        //    Debug.LogError("주어진 높이는 선분의 범위를 벗어납니다.");
-        //    return Vector3.zero;
-        //}
 
         // 높이 비율 계산
         float heightRatio = (targetY - start.y) / totalHeight;
