@@ -75,6 +75,28 @@ public class CupComponent : MonoBehaviour
         UpdateFilling();
     }
 
+    public void SetRotation(float degree)
+    {
+        int pointCount = spriteShapeController.spline.GetPointCount();
+        Vector3 pivot = CalculateSplineCenter(); // 회전의 중심을 계산
+
+        // 현재 회전 각도를 계산
+        float currentRotation = CalculateCurrentRotation();
+    }
+
+    private float CalculateCurrentRotation()
+    {
+        // 바닥의 점들을 선택하여 회전 각도를 계산 (시작과 끝 점)
+        Vector3 point1 = spriteShapeController.spline.GetPosition(0);
+        Vector3 point2 = spriteShapeController.spline.GetPosition(spriteShapeController.spline.GetPointCount()-1);
+
+        // 벡터의 각도를 계산 (2D 평면에서의 각도 계산)
+        Vector3 direction = point2 - point1;
+        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+
+        return angle;
+    }
+
     public void RotateDegree(float degree)
     {
         int pointCount = spriteShapeController.spline.GetPointCount();
