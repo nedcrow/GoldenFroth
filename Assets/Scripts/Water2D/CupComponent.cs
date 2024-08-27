@@ -18,9 +18,12 @@ public class CupComponent : MonoBehaviour
     public float fillingAmount = 0.5f;
     [Range(0, 1)]
     public float thikness = 0;
+    
     [Range(-170, 170)]
     public float slopeValue = 0;
+    public float maxSlopeValue = 170;
 
+    public GameObject glassBody;
     public GameObject waterSurface;
     public LineRenderer lineRenderer;
 
@@ -75,26 +78,15 @@ public class CupComponent : MonoBehaviour
         UpdateFilling();
     }
 
-    public void SetRotation(float degree)
+    public void SetRotation(float targetRotation)
     {
         int pointCount = spriteShapeController.spline.GetPointCount();
         Vector3 pivot = CalculateSplineCenter(); // 회전의 중심을 계산
 
         // 현재 회전 각도를 계산
         float currentRotation = CalculateCurrentRotation();
-    }
-
-    private float CalculateCurrentRotation()
-    {
-        // 바닥의 점들을 선택하여 회전 각도를 계산 (시작과 끝 점)
-        Vector3 point1 = spriteShapeController.spline.GetPosition(0);
-        Vector3 point2 = spriteShapeController.spline.GetPosition(spriteShapeController.spline.GetPointCount()-1);
-
-        // 벡터의 각도를 계산 (2D 평면에서의 각도 계산)
-        Vector3 direction = point2 - point1;
-        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
-
-        return angle;
+        float distanceOfRotation = targetRotation - currentRotation;
+        RotateDegree(distanceOfRotation);
     }
 
     public void RotateDegree(float degree)
@@ -115,6 +107,31 @@ public class CupComponent : MonoBehaviour
         UpdateFilling();
     }
 
+    private Vector3 CalculateSplineCenter()
+    {
+        int pointCount = spriteShapeController.spline.GetPointCount();
+        Vector3 center = Vector3.zero;
+        for (int i = 0; i < pointCount; i++)
+        {
+            center += spriteShapeController.spline.GetPosition(i);
+        }
+        //return center / pointCount;
+        return Vector3.zero;
+    }
+
+    private float CalculateCurrentRotation()
+    {
+        // 바닥의 점들을 선택하여 회전 각도를 계산 (시작과 끝 점)
+        Vector3 point1 = spriteShapeController.spline.GetPosition(0);
+        Vector3 point2 = spriteShapeController.spline.GetPosition(spriteShapeController.spline.GetPointCount() - 1);
+
+        // 벡터의 각도를 계산 (2D 평면에서의 각도 계산)
+        Vector3 direction = point2 - point1;
+        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+
+        return angle;
+    }
+
     private Vector3 RotatePointAroundPivot(Vector3 point, Vector3 pivot, float angle)
     {
         Vector3 dir = point - pivot; // 중심으로부터의 벡터
@@ -126,16 +143,7 @@ public class CupComponent : MonoBehaviour
         return new Vector3(newX, newY, point.z) + pivot;
     }
 
-    private Vector3 CalculateSplineCenter()
-    {
-        int pointCount = spriteShapeController.spline.GetPointCount();
-        Vector3 center = Vector3.zero;
-        for (int i = 0; i < pointCount; i++)
-        {
-            center += spriteShapeController.spline.GetPosition(i);
-        }
-        return center / pointCount;
-    }
+    
 
     public Vector3 GetWaterSurfacePositionLeft()
     {
