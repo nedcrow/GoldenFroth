@@ -1,4 +1,4 @@
-using System.Drawing;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.U2D;
 
@@ -14,6 +14,9 @@ public class Edge {
 
 public class CupComponent : MonoBehaviour
 {
+    public delegate void Del_OverLiquid(float value);
+    public event Del_OverLiquid OverLiquidEvent;
+
     [Range(0,1)]
     public float fillingAmount = 0.5f;
     [Range(0, 1)]
@@ -35,8 +38,9 @@ public class CupComponent : MonoBehaviour
     SpriteShapeController spriteShapeController;
     WaterShapeController waterShapeController = null;
 
-    float BottomOfCup = .0f;
+    float bottomOfCup = .0f;
     float secondTopOfCup = .0f;
+    float topOfCup = .0f;
 
     float waterHeight = 0;
 
@@ -74,6 +78,22 @@ public class CupComponent : MonoBehaviour
     public void FillIn(float amount)
     {
         fillingAmount = Mathf.Clamp(amount, 0, 1);
+
+        if(GetWaterSurfacePositionLeft().y > secondTopOfCup)
+        {
+            StartCoroutine(Co_ReduceLiquid());
+        }
+
+        if(amount >= 1 && waterShapeController.tensionValue < 0) {
+            waterShapeController.tensionValue = 0.01f;
+        }else if (amount >= 1 && waterShapeController.tensionValue >= 0)
+        {
+            waterShapeController.tensionValue = Mathf.Clamp(amount-1, 0, 0.5f);
+        }
+        else if(amount < 1)
+        {
+            waterShapeController.tensionValue = -0.05f;
+        }
         UpdateWaterSurface();
         UpdateFilling();
     }
@@ -87,6 +107,11 @@ public class CupComponent : MonoBehaviour
         float currentRotation = CalculateCurrentRotation();
         float distanceOfRotation = targetRotation - currentRotation;
         RotateDegree(distanceOfRotation);
+
+        if (GetWaterSurfacePositionLeft().y > secondTopOfCup)
+        {
+            StartCoroutine(Co_ReduceLiquid());
+        }
     }
 
     public void RotateDegree(float degree)
@@ -178,8 +203,9 @@ public class CupComponent : MonoBehaviour
 
         if (leftEdge.start.y < leftEdge.end.y)
         {
-            BottomOfCup = Mathf.Min(leftEdge.start.y, rightEdge.start.y);
+            bottomOfCup = Mathf.Min(leftEdge.start.y, rightEdge.start.y);
             secondTopOfCup = Mathf.Min(leftEdge.end.y, rightEdge.end.y);
+            topOfCup = Mathf.Max(leftEdge.end.y, rightEdge.end.y);
         }
     }
 
@@ -188,7 +214,7 @@ public class CupComponent : MonoBehaviour
         if (spriteShapeController == null || lineRenderer == null) return;
 
         // 수면의 높이 계산
-        waterHeight = Mathf.Lerp(BottomOfCup, secondTopOfCup, fillingAmount);
+        waterHeight = Mathf.Lerp(bottomOfCup, topOfCup, fillingAmount);
 
         // 수면의 넓이 계산 (바닥이 ㄷ모양이 아니고 V 모양인 경우도 필요
         leftWaterSurfacePoint = GetPointWaterSurface(leftEdge.start, leftEdge.end, waterHeight);
@@ -224,7 +250,6 @@ public class CupComponent : MonoBehaviour
                     centerX += childShapeController.spline.GetPosition(i).x;
                     centerY += childShapeController.spline.GetPosition(i).y;
                     centerZ += childShapeController.spline.GetPosition(i).z;
-                    Debug.Log(childShapeController.spline.GetPosition(i));
                 }
 
                 Vector3 centerOfWater = new Vector3(
@@ -275,5 +300,11 @@ public class CupComponent : MonoBehaviour
         float z = Mathf.Lerp(end.z, start.z, heightRatio);
 
         return new Vector3(x, targetY, z);
+    }
+
+    public IEnumerator Co_ReduceLiquid()
+    {
+        yield return new WaitForSeconds(0.08f);
+        this.OverLiquidEvent(fillingAmount - 0.02f);
     }
 }

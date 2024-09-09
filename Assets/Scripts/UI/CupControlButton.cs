@@ -9,6 +9,12 @@ public class CupControlButton : MonoBehaviour
     public Camera effactCam;
     public CupComponent cup;
 
+    bool isAttachedEvent = false;
+
+    private void Start()
+    {
+    }
+
     public void RotateCup()
     {
         float currentRotation = GetComponent<Slider>().value * cup.maxSlopeValue;
@@ -21,7 +27,17 @@ public class CupControlButton : MonoBehaviour
 
     public void FillCup()
     {
+        if(isAttachedEvent == false && transform.name == "Slider_Filling") 
+        {
+            cup.OverLiquidEvent += FixFillingTestSlider;
+            isAttachedEvent = true;
+        }
         cup.FillIn(GetComponent<Slider>().value);
+    }
+
+    public void FixFillingTestSlider(float value)
+    {
+        GetComponent<Slider>().value = value;
     }
 
 }

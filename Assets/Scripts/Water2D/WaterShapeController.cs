@@ -15,15 +15,19 @@ public class WaterShapeController : MonoBehaviour
     public GameObject wavePointPref;
 
     [SerializeField]
+    [Range(-1, 1)]
+    public float tensionValue = 0;
+
+    [SerializeField]
     [Range(1, 100)]
-    int WavesCount = 6;
+    int wavesCount = 6;
     [SerializeField]
     string wavePointsName = "WavePoints";
     [SerializeField]
     GameObject wavePointGroup;
     [SerializeField]
     List<WaterSpring> waterSprings = new();
-    int CornersCount = 2;
+    int cornersCount = 2;
     SpriteShapeController spriteShapeController = null;
 
 
@@ -108,23 +112,31 @@ public class WaterShapeController : MonoBehaviour
         // Keep only the corners
         // Removing 1 point at a time we can remove only the 1st point
         // This means every time we remove 1st point the 2nd point becomes first
-        for (int i = CornersCount; i < waterPointsCount - CornersCount; i++)
+        for (int i = cornersCount; i < waterPointsCount - cornersCount; i++)
         {
-            waterSpline.RemovePointAt(CornersCount);
+            waterSpline.RemovePointAt(cornersCount);
         }
 
         Vector3 waterTopLeftCorner =  waterSpline.GetPosition(1);
         Vector3 waterTopRightCorner =  waterSpline.GetPosition(2);
         float waterWidth = waterTopRightCorner.x - waterTopLeftCorner.x;
 
-        float spacingPerWave = waterWidth / (WavesCount + 1);
-        // Set new points for the waves
-        for (int i = WavesCount; i > 0; i--)
-        {
-            int index = CornersCount;
+        float spacingPerWave = waterWidth / (wavesCount + 1);
+        float margin = spacingPerWave * tensionValue;
+        float marginABS = Mathf.Abs(margin);
+        float widthWithoutMargin = waterWidth - (marginABS * 2);
+        float spacingPerWaveWithoutMargin = widthWithoutMargin / (wavesCount - 1);
 
-            float xPosition = waterTopLeftCorner.x + (spacingPerWave * i);
-            Vector3 wavePoint = new Vector3(xPosition, waterTopLeftCorner.y, waterTopLeftCorner.z);
+        Vector3 newWaterTopLeftCorner = waterSpline.GetPosition(1) + (Vector3.up * margin);
+        Vector3 newWaterTopRightCorner = waterSpline.GetPosition(2) + (Vector3.up * margin);
+
+        // Set new points for the waves (started right)
+        for (int i = wavesCount; i > 0; i--)
+        {
+            int index = cornersCount;
+            float value = marginABS == 0 ? spacingPerWave : spacingPerWaveWithoutMargin;
+            float xPosition = newWaterTopLeftCorner.x + (value * i) - (marginABS == 0 ? 0 : spacingPerWaveWithoutMargin - Mathf.Abs(marginABS));
+            Vector3 wavePoint = new Vector3(xPosition, newWaterTopLeftCorner.y, newWaterTopLeftCorner.z);
             waterSpline.InsertPointAt(index, wavePoint);
             waterSpline.SetHeight(index, 0.1f);
             waterSpline.SetCorner(index, false);
@@ -140,7 +152,7 @@ public class WaterShapeController : MonoBehaviour
         List<GameObject> tempGameObjList = new List<GameObject>();
         waterSprings = new List<WaterSpring>();
 
-        for (int i = 0; i <= WavesCount + 1; i++)
+        for (int i = 0; i <= wavesCount + 1; i++)
         {
             int index = i + 1;
 
@@ -168,7 +180,7 @@ public class WaterShapeController : MonoBehaviour
         {
             positionPrev = waterSpline.GetPosition(index - 1);
         }
-        if (index - 1 <= WavesCount)
+        if (index - 1 <= wavesCount)
         {
             positionNext = waterSpline.GetPosition(index + 1);
         }
