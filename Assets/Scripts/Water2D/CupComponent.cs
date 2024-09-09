@@ -18,7 +18,7 @@ public class CupComponent : MonoBehaviour
     public float fillingAmount = 0.5f;
     [Range(0, 1)]
     public float thikness = 0;
-    
+
     [Range(-170, 170)]
     public float slopeValue = 0;
     public float maxSlopeValue = 170;
@@ -35,9 +35,8 @@ public class CupComponent : MonoBehaviour
     SpriteShapeController spriteShapeController;
     WaterShapeController waterShapeController = null;
 
-    float minY = .0f;
-    float maxY = .0f;
-    float secondY = .0f;
+    float BottomOfCup = .0f;
+    float secondTopOfCup = .0f;
 
     float waterHeight = 0;
 
@@ -46,6 +45,7 @@ public class CupComponent : MonoBehaviour
     {
         if(GetComponent<SpriteShapeController>() == null) gameObject.AddComponent<SpriteShapeController>();
         spriteShapeController = GetComponent<SpriteShapeController>();
+        UpdateEdges();
     }
 
     void Awake()
@@ -71,7 +71,7 @@ public class CupComponent : MonoBehaviour
     /// 
     /// </summary>
     /// <param name="amount"> range is 0~1 </param>
-    public void SetFillingAmount(float amount)
+    public void FillIn(float amount)
     {
         fillingAmount = Mathf.Clamp(amount, 0, 1);
         UpdateWaterSurface();
@@ -103,6 +103,7 @@ public class CupComponent : MonoBehaviour
 
         // Spline 갱신
         spriteShapeController.BakeMesh();
+        UpdateEdges();
         UpdateWaterSurface();
         UpdateFilling();
     }
@@ -141,11 +142,9 @@ public class CupComponent : MonoBehaviour
         float newX = dir.x * cos - dir.y * sin;
         float newY = dir.x * sin + dir.y * cos;
         return new Vector3(newX, newY, point.z) + pivot;
-    }
+    }    
 
-    
-
-    public Vector3 GetWaterSurfacePositionLeft()
+    public Vector3 GetWaterSurfacePositionLeft(float tension = 0)
     {
         return leftWaterSurfacePoint;
     }
@@ -155,10 +154,12 @@ public class CupComponent : MonoBehaviour
         return rightWaterSurfacePoint;
     }
 
-    void UpdateWaterSurface()
-    {
-        if (spriteShapeController == null || lineRenderer == null) return;
+    void CalculateTension() { 
+        
+    }
 
+    public void UpdateEdges()
+    {
         // 컵 모양의 경계를 가져오기
         Spline spline = spriteShapeController.spline;
         Vector3[] cupBoundary = new Vector3[spline.GetPointCount()];
@@ -177,13 +178,17 @@ public class CupComponent : MonoBehaviour
 
         if (leftEdge.start.y < leftEdge.end.y)
         {
-            minY = Mathf.Min(leftEdge.start.y,  rightEdge.start.y);
-            maxY = Mathf.Max(leftEdge.end.y, rightEdge.end.y);
-            secondY = Mathf.Min(leftEdge.end.y, rightEdge.end.y); // Second
+            BottomOfCup = Mathf.Min(leftEdge.start.y, rightEdge.start.y);
+            secondTopOfCup = Mathf.Min(leftEdge.end.y, rightEdge.end.y);
         }
+    }
+
+    void UpdateWaterSurface()
+    {
+        if (spriteShapeController == null || lineRenderer == null) return;
 
         // 수면의 높이 계산
-        waterHeight = Mathf.Lerp(minY, secondY, fillingAmount);
+        waterHeight = Mathf.Lerp(BottomOfCup, secondTopOfCup, fillingAmount);
 
         // 수면의 넓이 계산 (바닥이 ㄷ모양이 아니고 V 모양인 경우도 필요
         leftWaterSurfacePoint = GetPointWaterSurface(leftEdge.start, leftEdge.end, waterHeight);
@@ -205,7 +210,7 @@ public class CupComponent : MonoBehaviour
             {
                 SpriteShapeController childShapeController = waterShapeController.GetComponent<SpriteShapeController>();
                 WaterCommon.CopySpline(GetComponent<SpriteShapeController>(), childShapeController);
-                childShapeController.spline.SetPosition(1, GetWaterSurfacePositionLeft());
+                childShapeController.spline.SetPosition(1, GetWaterSurfacePositionLeft());                
                 childShapeController.spline.SetPosition(2, GetWaterSurfacePositionRight());
 
                 // 소스 스플라인의 모든 점 복사
@@ -219,20 +224,39 @@ public class CupComponent : MonoBehaviour
                     centerX += childShapeController.spline.GetPosition(i).x;
                     centerY += childShapeController.spline.GetPosition(i).y;
                     centerZ += childShapeController.spline.GetPosition(i).z;
+                    Debug.Log(childShapeController.spline.GetPosition(i));
                 }
 
-                Vector3 centerV = new Vector3(
+                Vector3 centerOfWater = new Vector3(
                     centerX / countOfPoints,
                     centerY / countOfPoints,
                     centerZ / countOfPoints
                     );
+                 Vector3 centerOfSurface = new Vector3(
+                    centerX / countOfPoints,
+                    (childShapeController.spline.GetPosition(1).y + childShapeController.spline.GetPosition(2).y) * 0.5f,
+                    centerZ / countOfPoints
+                    );
 
-                for (int i = 0; i < countOfPoints; i++)
-                {
-                    childShapeController.spline.SetPosition(
-                        i, Vector3.Lerp(childShapeController.spline.GetPosition(i), centerV, thikness)
+                //// 바닥 점을 중앙으로 일정수치만큼 당김
+                childShapeController.spline.SetPosition(
+                        0,
+                        Vector3.Lerp(childShapeController.spline.GetPosition(0), centerOfWater, thikness)
                         );
-                }
+                childShapeController.spline.SetPosition(
+                        3,
+                        Vector3.Lerp(childShapeController.spline.GetPosition(3), centerOfWater, thikness)
+                        );
+
+                // 표면 점은 표면 중앙으로 일정수치만큼 당김
+                childShapeController.spline.SetPosition(
+                        1,
+                        Vector3.Lerp(childShapeController.spline.GetPosition(1), centerOfSurface, thikness)
+                        );
+                childShapeController.spline.SetPosition(
+                        2,
+                        Vector3.Lerp(childShapeController.spline.GetPosition(2), centerOfSurface, thikness)
+                        );
             }
             waterShapeController.InitWaves();
         }

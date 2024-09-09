@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class CupRotator : MonoBehaviour
+public class CupControlButton : MonoBehaviour
 {
     public Camera mainCam;
     public Camera effactCam;
@@ -17,6 +17,11 @@ public class CupRotator : MonoBehaviour
         effactCam.transform.localRotation = Quaternion.Euler(0, 0, currentRotation);
         cup.glassBody.transform.localRotation = Quaternion.Euler(0, 0, currentRotation);
         
+    }
+
+    public void FillCup()
+    {
+        cup.FillIn(GetComponent<Slider>().value);
     }
 
 }
